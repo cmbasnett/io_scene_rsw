@@ -22,11 +22,9 @@ class GndExporter(object):
             for i in range(gnd.height):
                 for j in range(gnd.width):
                     k = (i * gnd.width) + j
-                    for l in range(0, 4):
-                        face = gnd.faces[k]
-                        print(face.texcoords)
-                        s = f'vt {face.texcoords[l]} {face.texcoords[l + 4]}\n'
-                        f.write(s)
+                    face = gnd.faces[k]
+                    for uv in face.uvs:
+                        f.write(f'vt {uv[0]} {uv[1]}\n')
             tile_count = gnd.width * gnd.height
             for i in range(tile_count):
                 j = i * 4
