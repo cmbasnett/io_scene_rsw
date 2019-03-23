@@ -48,7 +48,7 @@ class GndExporter(object):
 
     @staticmethod
     def export(gnd: Gnd, path: str):
-        with open(path, 'w') as f:
+        with open(path, 'w', encoding='utf-8') as f:
             print(gnd.scale)
             for i in range(gnd.height):
                 for j in range(gnd.width):
