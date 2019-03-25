@@ -1,25 +1,29 @@
 import unittest
 from src.gnd.reader import GndReader
 from src.gnd.exporter import GndExporter
+import os
 
+
+path = './data/prt_monk/data/prt_monk.gnd'
+# path = './data/mjolnir_10/data/mjolnir_10.gnd'
 
 class TestGndReader(unittest.TestCase):
 
     def test_reader(self):
-        gnd = GndReader.from_file('./data/prt_fild01/prt_fild01.gnd')
+        gnd = GndReader.from_file(path)
         print(f'width: {gnd.width}')
         print(f'height: {gnd.height}')
         print(f'textures: {len(gnd.textures)}')
         print(f'faces: {len(gnd.faces)}')
         print(f'tiles: {len(gnd.tiles)}')
-        print(f'unknowns: {len(gnd.unknowns)}')
+        print(f'lightmaps: {len(gnd.lightmaps)}')
         self.assertTrue(gnd is not None)
 
 
 class TestGndConsistency(unittest.TestCase):
 
     def setUp(self):
-        self.gnd = GndReader.from_file('./data/prt_fild01/prt_fild01.gnd')
+        self.gnd = GndReader.from_file(path)
 
     def test_face_texcoords(self):
         for face in self.gnd.faces:
@@ -32,17 +36,17 @@ class TestGndConsistency(unittest.TestCase):
 
     def test_face_unknown_indices(self):
         for face in self.gnd.faces:
-            self.assertLessEqual(face.unknowns_index, len(self.gnd.unknowns))
+            self.assertLessEqual(face.lightmap_index, len(self.gnd.lightmaps))
 
 
-class TestGndExporter(unittest.TestCase):
+class TestGndXExporter(unittest.TestCase):
 
     def setUp(self):
-        self.gnd = GndReader.from_file('./data/prt_fild01/prt_fild01.gnd')
+        self.gnd = GndReader.from_file(path)
 
     def test_exporter(self):
         exporter = GndExporter()
-        exporter.export(self.gnd, '/Users/colinbasnett/Desktop/prt_fild01.obj')
+        exporter.export(self.gnd, os.path.basename(path) + '.obj')
         self.assertTrue(True)
 
 

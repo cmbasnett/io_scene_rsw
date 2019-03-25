@@ -3,9 +3,10 @@ from typing import List
 
 class Gnd(object):
 
-    class Unknown(object):
+    class Lightmap(object):
         def __init__(self):
-            self.data = None
+            self.luminosity = None
+            self.color = None
 
     class Texture(object):
         def __init__(self, path: str = ''):
@@ -24,7 +25,7 @@ class Gnd(object):
         def __init__(self):
             self.texcoords = None
             self.texture_index = 0
-            self.unknowns_index = 0
+            self.lightmap_index = 0
             self.lighting = None
 
         @property
@@ -33,7 +34,7 @@ class Gnd(object):
                 yield (self.texcoords[i], self.texcoords[i + 4])
 
     def __init__(self, textures: List[Texture] = list(), faces: List[Face] = list(), tiles: List[Tile] = list()) -> None:
-        self.unknowns = []
+        self.lightmaps = []
         self.textures = textures
         self.tiles = tiles
         self.faces = faces
