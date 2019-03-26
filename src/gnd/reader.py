@@ -8,19 +8,18 @@ class GndReader(object):
         pass
 
     @staticmethod
-    def from_file(path: str):
+    def from_file(path):
         with open(path, 'rb') as f:
             return GndReader.from_stream(f)
 
     @staticmethod
-    def from_stream(f: io.FileIO):
+    def from_stream(f):
         reader = BinaryFileReader(f)
         magic = reader.read('4s')[0]
         if magic != b'GRGN':
             raise RuntimeError('Unrecognized file format.')
         gnd = Gnd()
         unk1 = reader.read('2b')  # Always seems to be 1,7 (maybe some sort of version?)
-        print(unk1)
         unk2 = reader.read('2I2s2I')
         gnd.width, gnd.height = unk2[0], unk2[1]
         # the first and second ones could be the tile width/height??
@@ -35,7 +34,8 @@ class GndReader(object):
         # this is related, in some way, to the tile faces
         for i in range(lightmap_count):
             lightmap = Gnd.Lightmap()
-            lightmap.data = reader.read('256B')
+            lightmap.luminosity = reader.read('64B')
+            lightmap.color = reader.read('192B')
             gnd.lightmaps.append(lightmap)
         face_count = reader.read('I')[0]
         for i in range(face_count):

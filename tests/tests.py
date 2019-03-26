@@ -1,22 +1,25 @@
 import unittest
 from src.gnd.reader import GndReader
-from src.gnd.exporter import GndExporter
+from PIL import Image
+import math
 import os
 
 
-path = './data/prt_monk/data/prt_monk.gnd'
+# path = './data/prt_monk/data/prt_monk.gnd'
 # path = './data/mjolnir_10/data/mjolnir_10.gnd'
+path = './data/prt_fild01/prt_fild01.gnd'
+
 
 class TestGndReader(unittest.TestCase):
 
     def test_reader(self):
         gnd = GndReader.from_file(path)
-        print(f'width: {gnd.width}')
-        print(f'height: {gnd.height}')
-        print(f'textures: {len(gnd.textures)}')
-        print(f'faces: {len(gnd.faces)}')
-        print(f'tiles: {len(gnd.tiles)}')
-        print(f'lightmaps: {len(gnd.lightmaps)}')
+        print('width: {}'.format(gnd.width))
+        print('height: {}'.format(gnd.height))
+        print('textures: {}'.format(len(gnd.textures)))
+        print('faces: {}'.format(len(gnd.faces)))
+        print('tiles: {}'.format(len(gnd.tiles)))
+        print('lightmaps: {}'.format(len(gnd.lightmaps)))
         self.assertTrue(gnd is not None)
 
 
@@ -34,19 +37,22 @@ class TestGndConsistency(unittest.TestCase):
         for face in self.gnd.faces:
             self.assertLessEqual(face.texture_index, len(self.gnd.textures))
 
-    def test_face_unknown_indices(self):
+    def test_face_lightmap_indices(self):
         for face in self.gnd.faces:
             self.assertLessEqual(face.lightmap_index, len(self.gnd.lightmaps))
 
-
-class TestGndXExporter(unittest.TestCase):
-
-    def setUp(self):
-        self.gnd = GndReader.from_file(path)
-
-    def test_exporter(self):
-        exporter = GndExporter()
-        exporter.export(self.gnd, os.path.basename(path) + '.obj')
+    def test_lightmaps(self):
+        # TODO: export lightmap to a big lightmap atlas
+        lightmap_count = len(self.gnd.lightmaps)
+        dim = int(math.ceil(math.sqrt(lightmap_count * 64) / 8) * 8)
+        num_dim = dim / 8
+        image = Image.new('L', (dim, dim))
+        for i, lightmap in enumerate(self.gnd.lightmaps):
+            x, y = int(i % num_dim) * 8, int(i / num_dim) * 8
+            for x2 in range(8):
+                for y2 in range(8):
+                    image.putpixel((x + x2, y + y2), lightmap.luminosity[y2 * 8 + x2])
+        image.save('lightmap.bmp')
         self.assertTrue(True)
 
 

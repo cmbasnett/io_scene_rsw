@@ -1,5 +1,3 @@
-from typing import List
-
 
 class Gnd(object):
 
@@ -9,7 +7,7 @@ class Gnd(object):
             self.color = None
 
     class Texture(object):
-        def __init__(self, path: str = ''):
+        def __init__(self, path=''):
             self.path = path
             self.data = None
 
@@ -33,11 +31,11 @@ class Gnd(object):
             for i in range(4):
                 yield (self.texcoords[i], self.texcoords[i + 4])
 
-    def __init__(self, textures: List[Texture] = list(), faces: List[Face] = list(), tiles: List[Tile] = list()) -> None:
+    def __init__(self):
         self.lightmaps = []
-        self.textures = textures
-        self.tiles = tiles
-        self.faces = faces
+        self.textures = []
+        self.tiles = []
+        self.faces = []
         self.width = 0
         self.height = 0
         self.scale = (1, 1, 1)
