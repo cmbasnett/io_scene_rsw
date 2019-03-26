@@ -115,14 +115,16 @@ class ImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
         '''
         Assign texture coordinates.
         '''
-        material_face_offsets = 0
         uv_texture = mesh.uv_layers[0]
         for face_index, face in enumerate(gnd.faces):
-            # material_face_offset = material_face_offsets[0]  # TODO: is this right?
-            # texcoords = [vertex.texcoord for vertex in face.vertices]
             uvs = list(face.uvs)
+            '''
+            Since we are adding quads and not triangles, we need to
+            add the UVs in quad clockwise winding order.
+            '''
             uvs = [uvs[x] for x in [0, 1, 3, 2]]
             for i, uv in enumerate(uvs):
+                # UVs have to be V-flipped
                 uv = uv[0], 1.0 - uv[1]
                 uv_texture.data[face_index * 4 + i].uv = uv
 
