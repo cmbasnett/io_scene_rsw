@@ -7,6 +7,9 @@ class BinaryFileReader(object):
     def __init__(self, file):
         self.file = file
 
+    def tell(self):
+        return self.file.tell()
+
     def read(self, fmt):
         return struct.unpack(fmt, self.file.read(struct.calcsize(fmt)))
 
@@ -18,4 +21,8 @@ class BinaryFileReader(object):
                 self.file.seek(n - i - 1, os.SEEK_CUR)
                 break
             buf.append(c)
-        return buf.decode(encoding)
+        try:
+            return buf.decode(encoding)
+        except UnicodeDecodeError as e:
+            print(buf)
+            raise e
