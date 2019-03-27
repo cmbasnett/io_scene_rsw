@@ -34,18 +34,20 @@ class TestRsmReader(unittest.TestCase):
 
     def test_bed(self):
         rsm = RsmReader.from_file('./rsm_tests/prt_k_bed_3.rsm')
+        self.assertIsNotNone(rsm)
         self.assertEqual(len(rsm.textures), 5)
-        self.assertEqual(len(rsm.meshes), 2)
+        self.assertEqual(len(rsm.meshes), 5)
+
+    def test_dish(self):
+        rsm = RsmReader.from_file('./rsm_tests/dish_01.rsm')
         self.assertIsNotNone(rsm)
 
     def test_export(self):
-        rsm = RsmReader.from_file('./rsm_tests/prn_statue_02.rsm')
-        with open('prn_statue_02.obj', 'w') as f:
+        rsm = RsmReader.from_file('./rsm_tests/fountain.rsm')
+        with open('fountain.obj', 'w', encoding='utf-8') as f:
             vertex_offset = 0
             texcoord_offset = 0
             for i, mesh in enumerate(rsm.meshes):
-                print(i, mesh.name)
-                print(mesh.offset)
                 for vertex in mesh.vertices:
                     f.write('v {} {} {}\n'.format(vertex[0] + mesh.offset[0], vertex[1] + mesh.offset[1], vertex[2] + mesh.offset[2]))
                 for texcoord in mesh.texcoords:
@@ -56,6 +58,9 @@ class TestRsmReader(unittest.TestCase):
                     f.write('f ' + s + '\n')
                 vertex_offset += len(mesh.vertices)
                 texcoord_offset += len(mesh.texcoords)
+
+    def test_find_stuff(self):
+        pass
 
 
 if __name__ == '__main__':
