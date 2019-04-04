@@ -52,15 +52,5 @@ class GndReader(object):
                 tile = Gnd.Tile()
                 tile.heights = reader.read('4f')
                 tile.face_indices = reader.read('3i')
-                # these are indices into the faces
-                # there are 3 of them
-                # has something to do with connectivity between tiles
-                # the "unknowns" could be connective tile geometry?
-                # "edge" rows have multiple invalid indices
-                # "corner" ones have *all* valid indices
-                # -1 indicates in invalid index
-                # if k < 4000:
-                #     face_unk_indices = [gnd.faces[x].unknowns_index if x != -1 else -1 for x in tile.face_indices]
-                #     print(i, j, k, face_unk_indices)
                 gnd.tiles.append(tile)
         return gnd

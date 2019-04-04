@@ -9,6 +9,25 @@ from bpy.props import StringProperty, BoolProperty, FloatProperty
 from .gnd.reader import GndReader
 from .rsm.reader import RsmReader
 
+
+def explode_path(p):
+    p = os.path.normpath(p)
+    p = p.split(os.sep)
+    return p
+
+def implode_path(p):
+    return os.sep.join(p)
+
+def rtrim_path_until(p, dir):
+    parts = explode_path(p)
+    try:
+        i = list(reversed(parts)).index(dir)
+        if i == 0:
+            return p
+    except ValueError:
+        return ''
+    return implode_path(parts[0:-i])
+
 class GndImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
     """This appears in the tooltip of the operator and in the generated docs"""
     bl_idname = 'io_scene_rsw.gnd_import'  # important since its how bpy.ops.import_test.some_data is constructed
@@ -31,6 +50,7 @@ class GndImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
         mesh_object = bpy.data.objects.new(name, mesh)
 
         dirname = os.path.dirname(self.filepath)
+        print(dirname)
 
         ''' Create materials. '''
         materials = []
@@ -43,16 +63,17 @@ class GndImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
 
             ''' Create texture. '''
             texture = bpy.data.textures.new(texture_path, type='IMAGE')
-            texpath = os.path.join(dirname, 'data', 'texture', texture_path)
+
+            data_path = rtrim_path_until(dirname, 'data')
+
+            print('data path')
+            print(data_path)
+
+            texpath = os.path.join(data_path, 'texture', texture_path)
             try:
                 texture.image = bpy.data.images.load(texpath, check_existing=True)
             except RuntimeError:
                 pass
-
-            # if options.image is not None:
-            #     texture.image = bpy.data.images.new('okay', width=options.image.width, height=options.image.height,
-            #                                         alpha=True)  # TODO: get real name
-            #     texture.image.pixels[:] = options.image.pixels[:]
 
             texture_slot = material.texture_slots.add()
             texture_slot.texture = texture
@@ -60,28 +81,29 @@ class GndImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
         bm = bmesh.new()
         bm.from_mesh(mesh)
 
+        scale = 10
+
         for y in range(gnd.height):
             for x in range(gnd.width):
                 tile_index = y * gnd.width + x
                 tile = gnd.tiles[tile_index]
-                print(tile.face_indices)
                 if tile.face_indices[0] != -1:  # +Z
-                    bm.verts.new(((x + 0) * 8, (y + 0) * 8, tile[0]))
-                    bm.verts.new(((x + 1) * 8, (y + 0) * 8, tile[1]))
-                    bm.verts.new(((x + 1) * 8, (y + 1) * 8, tile[3]))
-                    bm.verts.new(((x + 0) * 8, (y + 1) * 8, tile[2]))
+                    bm.verts.new(((x + 0) * scale, (y + 0) * scale, tile[0]))
+                    bm.verts.new(((x + 1) * scale, (y + 0) * scale, tile[1]))
+                    bm.verts.new(((x + 1) * scale, (y + 1) * scale, tile[3]))
+                    bm.verts.new(((x + 0) * scale, (y + 1) * scale, tile[2]))
                 if tile.face_indices[1] != -1:  # +Y
                     adjacent_tile = gnd.tiles[tile_index + gnd.width]
-                    bm.verts.new(((x + 0) * 8, (y + 1) * 8, tile[2]))
-                    bm.verts.new(((x + 1) * 8, (y + 1) * 8, tile[3]))
-                    bm.verts.new(((x + 1) * 8, (y + 1) * 8, adjacent_tile[1]))
-                    bm.verts.new(((x + 0) * 8, (y + 1) * 8, adjacent_tile[0]))
+                    bm.verts.new(((x + 0) * scale, (y + 1) * scale, tile[2]))
+                    bm.verts.new(((x + 1) * scale, (y + 1) * scale, tile[3]))
+                    bm.verts.new(((x + 1) * scale, (y + 1) * scale, adjacent_tile[1]))
+                    bm.verts.new(((x + 0) * scale, (y + 1) * scale, adjacent_tile[0]))
                 if tile.face_indices[2] != -1:  # +X
                     adjacent_tile = gnd.tiles[tile_index + 1]
-                    bm.verts.new(((x + 1) * 8, (y + 0) * 8, tile[1]))
-                    bm.verts.new(((x + 1) * 8, (y + 0) * 8, adjacent_tile[0]))
-                    bm.verts.new(((x + 1) * 8, (y + 1) * 8, adjacent_tile[2]))
-                    bm.verts.new(((x + 1) * 8, (y + 1) * 8, tile[3]))
+                    bm.verts.new(((x + 1) * scale, (y + 1) * scale, tile[3]))
+                    bm.verts.new(((x + 1) * scale, (y + 0) * scale, tile[1]))
+                    bm.verts.new(((x + 1) * scale, (y + 0) * scale, adjacent_tile[0]))
+                    bm.verts.new(((x + 1) * scale, (y + 1) * scale, adjacent_tile[2]))
 
         bm.verts.ensure_lookup_table()
 
@@ -148,15 +170,34 @@ class RsmImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
         maxlen=255,  # Max internal buffer length, longer would be clamped.
     )
 
+
     def execute(self, context):
         rsm = RsmReader.from_file(self.filepath)
+        dirname = os.path.dirname(self.filepath)
 
         materials = []
-        for texture in rsm.textures:
-            # texture_path = texture.path
-            material = bpy.data.materials.new(texture)
+        for texture_path in rsm.textures:
+            material = bpy.data.materials.new(texture_path)
+            material.diffuse_intensity = 1.0
+            material.specular_intensity = 0.0
+
+            # TODO: search backwards until we hit the "data" directory (or slough off bits until we
+            # hit hte data directory?)
+            data_path = rtrim_path_until(dirname, 'data')
+
+            ''' Create texture. '''
+            texture = bpy.data.textures.new(texture_path, type='IMAGE')
+
+            if data_path != '':
+                texpath = os.path.join(data_path, 'texture', texture_path)
+                try:
+                    texture.image = bpy.data.images.load(texpath, check_existing=True)
+                except RuntimeError:
+                    pass
+
             texture_slot = material.texture_slots.add()
-            # TODO: add the image in here, eventually
+            texture_slot.texture = texture
+
             materials.append(material)
 
         nodes = {}
@@ -202,12 +243,15 @@ class RsmImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
                 uvs = [node.texcoords[x] for x in face.texcoord_indices]
                 for i, uv in enumerate(uvs):
                     # UVs have to be V-flipped (maybe)
-                    # uv = uv[0], 1.0 - uv[1]
-                    uv_texture.data[face_index * 3 + i].uv = uv[1:]
+                    uv = uv[1:]
+                    uv = uv[0], 1.0 - uv[1]
+                    uv_texture.data[face_index * 3 + i].uv = uv
 
             bpy.context.scene.objects.link(mesh_object)
 
-            mesh_object.location = node.offset
+            offset = (node.offset[0], node.offset[2], node.offset[1] * -1.0)
+
+            mesh_object.location = offset
 
         return {'FINISHED'}
 

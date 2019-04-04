@@ -41,7 +41,6 @@ class RsmReader(object):
                 node.vertices = [reader.read('3f') for _ in range(vertex_count)]
                 # Texture Coordinates
                 texcoord_count = reader.read('I')[0]
-                print(texcoord_count)
                 for _ in range(texcoord_count):
                     texcoord = reader.read('I2f')
                     node.texcoords.append(texcoord)
@@ -62,12 +61,12 @@ class RsmReader(object):
                     for _ in range(location_keyframe_count):
                         location_keyframe = Rsm.Node.LocationKeyFrame()
                         location_keyframe.frame = reader.read('I')
-                        location_keyframe.position = reader.read('3F')
+                        location_keyframe.position = reader.read('3f')
                         node.location_keyframes.append(location_keyframe)
                 rotation_keyframe_count = reader.read('I')[0]
                 for _ in range(rotation_keyframe_count):
                     rotation_keyframe = Rsm.Node.RotationKeyFrame()
                     rotation_keyframe.frame = reader.read('I')
-                    rotation_keyframe.rotation = reader.read('4F')
+                    rotation_keyframe.rotation = reader.read('4f')
                     node.rotation_keyframes.append(rotation_keyframe)
             return rsm
