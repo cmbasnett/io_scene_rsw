@@ -16,24 +16,21 @@ if __name__ != 'src':  # TODO: temp
     if 'bpy' in locals():
         import importlib
         if 'gnd'        in locals(): importlib.reload(gnd)
-        # if 'dxt'        in locals(): importlib.reload(dtx)
-        # if 'abc'        in locals(): importlib.reload(abc)
-        # if 'builder'    in locals(): importlib.reload(builder)
-        # if 'reader'     in locals(): importlib.reload(reader)
-        # if 'writer'     in locals(): importlib.reload(writer)
+        if 'rsm'        in locals(): importlib.reload(rsm)
         if 'importer'   in locals(): importlib.reload(importer)
-        # if 'exporter'   in locals(): importlib.reload(exporter)
 
     import bpy
     from .gnd import gnd
+    from .rsm import rsm
     from . import importer
-    # from . import exporter
 
     def register():
         bpy.utils.register_module(__name__)
-        bpy.types.INFO_MT_file_import.append(importer.ImportOperator.menu_func_import)
+        bpy.types.INFO_MT_file_import.append(importer.GndImportOperator.menu_func_import)
+        bpy.types.INFO_MT_file_import.append(importer.RsmImportOperator.menu_func_import)
 
 
     def unregister():
         bpy.utils.unregister_module(__name__)
-        bpy.types.INFO_MT_file_import.remove(importer.ImportOperator.menu_func_import)
+        bpy.types.INFO_MT_file_import.remove(importer.GndImportOperator.menu_func_import)
+        bpy.types.INFO_MT_file_import.remove(importer.RsmImportOperator.menu_func_import)

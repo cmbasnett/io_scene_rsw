@@ -7,13 +7,11 @@ import bmesh
 # from mathutils import Vector, Matrix, Quaternion
 from bpy.props import StringProperty, BoolProperty, FloatProperty
 from .gnd.reader import GndReader
-# from .dtx import DTX
-# from .reader import ModelReader
-# from . import utils
+from .rsm.reader import RsmReader
 
-class ImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
+class GndImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
     """This appears in the tooltip of the operator and in the generated docs"""
-    bl_idname = 'io_scene_rsw.rsw_import'  # important since its how bpy.ops.import_test.some_data is constructed
+    bl_idname = 'io_scene_rsw.gnd_import'  # important since its how bpy.ops.import_test.some_data is constructed
     bl_label = 'Import Ragnarok Online GND'
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
@@ -33,8 +31,6 @@ class ImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
         mesh_object = bpy.data.objects.new(name, mesh)
 
         dirname = os.path.dirname(self.filepath)
-        print('dirname')
-        print(dirname)
 
         ''' Create materials. '''
         materials = []
@@ -133,4 +129,88 @@ class ImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
 
     @staticmethod
     def menu_func_import(self, context):
-        self.layout.operator(ImportOperator.bl_idname, text='Ragnarok Online GND (.gnd)')
+        self.layout.operator(GndImportOperator.bl_idname, text='Ragnarok Online GND (.gnd)')
+
+
+
+class RsmImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
+    """This appears in the tooltip of the operator and in the generated docs"""
+    bl_idname = 'io_scene_rsw.rsm_import'  # important since its how bpy.ops.import_test.some_data is constructed
+    bl_label = 'Import Ragnarok Online RSM'
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+
+    filename_ext = ".rsm"
+
+    filter_glob = StringProperty(
+        default="*.rsm",
+        options={'HIDDEN'},
+        maxlen=255,  # Max internal buffer length, longer would be clamped.
+    )
+
+    def execute(self, context):
+        rsm = RsmReader.from_file(self.filepath)
+
+        materials = []
+        for texture in rsm.textures:
+            # texture_path = texture.path
+            material = bpy.data.materials.new(texture)
+            texture_slot = material.texture_slots.add()
+            # TODO: add the image in here, eventually
+            materials.append(material)
+
+        nodes = {}
+        for node in rsm.nodes:
+            mesh = bpy.data.meshes.new(node.name)
+            mesh_object = bpy.data.objects.new(node.name, mesh)
+
+            nodes[node.name] = mesh_object
+
+            if node.parent_name in nodes:
+                mesh_object.parent = nodes[node.parent_name]
+
+            ''' Add UV map to each material. '''
+            uv_texture = mesh.uv_textures.new()
+            material.texture_slots[0].uv_layer = uv_texture.name
+
+            bm = bmesh.new()
+            bm.from_mesh(mesh)
+
+            for texture_index in node.texture_indices:
+                mesh.materials.append(materials[texture_index])
+
+            for vertex in node.vertices:
+                bm.verts.new(vertex)
+
+            bm.verts.ensure_lookup_table()
+
+            # TODO: texture slots
+
+            for face in node.faces:
+                bmface = bm.faces.new([bm.verts[x] for x in face.vertex_indices])
+                bmface.material_index = face.texture_index
+
+            bm.faces.ensure_lookup_table()
+
+            bm.to_mesh(mesh)
+
+            '''
+            Assign texture coordinates.
+            '''
+            uv_texture = mesh.uv_layers[0]
+            for face_index, face in enumerate(node.faces):
+                uvs = [node.texcoords[x] for x in face.texcoord_indices]
+                for i, uv in enumerate(uvs):
+                    # UVs have to be V-flipped (maybe)
+                    # uv = uv[0], 1.0 - uv[1]
+                    uv_texture.data[face_index * 3 + i].uv = uv[1:]
+
+            bpy.context.scene.objects.link(mesh_object)
+
+            mesh_object.location = node.offset
+
+        return {'FINISHED'}
+
+    @staticmethod
+    def menu_func_import(self, context):
+        self.layout.operator(RsmImportOperator.bl_idname, text='Ragnarok Online RSM (.rsm)')

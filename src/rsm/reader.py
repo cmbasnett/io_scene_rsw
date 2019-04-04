@@ -7,69 +7,67 @@ class RsmReader(object):
         pass
 
     @staticmethod
-    def from_file(path):
+    def from_file(path) -> Rsm:
         with open(path, 'rb') as f:
-            f.seek(-1, 2)
-            eof = f.tell()
-            f.seek(0, 0)
             rsm = Rsm()
             reader = BinaryFileReader(f)
             magic = reader.read('4s')[0]
             if magic != b'GRSM':
                 raise RuntimeError('Invalid file type')
-            unk1 = reader.read('2B') # always [1, 4]??
-            unk2 = reader.read('6I')
-            print('unk2' + str(unk2))
-            unk3 = reader.read('B')[0]
-            print(unk3)
-            mesh_count = unk2[1]  # TODO: not confirmed (probably confirmed!)
+            version_major, version_minor = reader.read('2B')
+            rsm.anim_length = reader.read('I')
+            rsm.shade_type = reader.read('I')
+            if version_major > 1 or version_major and version_minor >= 4:
+                rsm.alpha = reader.read('B')
+            reader.read('16B')
             texture_count = reader.read('I')[0]
-            print(texture_count)
             for i in range(texture_count):
                 texture = reader.read_fixed_length_null_terminated_string(40)
                 rsm.textures.append(texture)
-            print(rsm.textures)
-            print('mesh count: ' + str(mesh_count)) # TODO: this is apparently not the mesh count!
-            while reader.tell() != eof - 7:
-            #for i in range(texture_count):
-                print(reader.tell(), eof)
-                mesh = rsm.Mesh()
-                mesh.name = reader.read_fixed_length_null_terminated_string(40)
-                print(mesh.name)
-                mesh.parent_name = reader.read_fixed_length_null_terminated_string(40)
-                print(list(mesh.parent_name))
-                if len(mesh.parent_name) == 1:  # TODO: something fishy about this one!
-                    mesh.unknown_name = reader.read('44B')
-                unk3 = reader.read('I')[0]
-                mesh.floats = reader.read('13f')
-                mesh.offset = reader.read('3f')
-                mesh.rotation = reader.read('4f')
-                mesh.scale = reader.read('3f')
+            rsm.main_node = reader.read_fixed_length_null_terminated_string(40)
+            node_count = reader.read('I')[0]
+            for i in range(node_count):
+                node = rsm.Node()
+                node.name = reader.read_fixed_length_null_terminated_string(40)
+                node.parent_name = reader.read_fixed_length_null_terminated_string(40)
+                node_texture_count = reader.read('I')[0]
+                node.texture_indices = reader.read('{}I'.format(node_texture_count))
+                node.floats = reader.read('9f') # offset matrix??
+                node.offset_ = reader.read('3f')
+                node.offset = reader.read('3f')
+                node.rotation = reader.read('4f')  # axis-angle
+                node.scale = reader.read('3f')
                 vertex_count = reader.read('I')[0]
-                print(mesh.offset)
-                print(mesh.rotation)
-                print(mesh.scale)
-                print(vertex_count)
-                mesh.vertices = [reader.read('3f') for _ in range(vertex_count)]
+                node.vertices = [reader.read('3f') for _ in range(vertex_count)]
                 # Texture Coordinates
                 texcoord_count = reader.read('I')[0]
                 print(texcoord_count)
-                for i in range(texcoord_count):
-                    texcoord = reader.read('3f')
-                    mesh.texcoords.append(texcoord)
+                for _ in range(texcoord_count):
+                    texcoord = reader.read('I2f')
+                    node.texcoords.append(texcoord)
                 # Faces
                 face_count = reader.read('I')[0]
-                print('face count: ' + str(face_count))
-                # print(face_count)
-                for i in range(face_count):
-                    face = Rsm.Mesh.Face()
+                for _ in range(face_count):
+                    face = Rsm.Node.Face()
                     face.vertex_indices = reader.read('3H')
                     face.texcoord_indices = reader.read('3H')
-                    face.unk1 = reader.read('4B')
-                    face.unk2 = reader.read('2I')
-                    mesh.faces.append(face)
-                print('finished faces')
-                rsm.meshes.append(mesh)
-                unk3 = reader.read('I')[0]  # TODO: who knows, man
-                print('unk3: ' + str(unk3))
+                    face.texture_index = reader.read('H')[0]
+                    reader.read('H') # padding
+                    face.two_sided = reader.read('I')[0]
+                    face.smoothing_group = reader.read('I')[0]
+                    node.faces.append(face)
+                rsm.nodes.append(node)
+                if version_major > 1 or (version_major == 1 and version_minor >= 5):
+                    location_keyframe_count = reader.read('I')[0]
+                    for _ in range(location_keyframe_count):
+                        location_keyframe = Rsm.Node.LocationKeyFrame()
+                        location_keyframe.frame = reader.read('I')
+                        location_keyframe.position = reader.read('3F')
+                        node.location_keyframes.append(location_keyframe)
+                rotation_keyframe_count = reader.read('I')[0]
+                for _ in range(rotation_keyframe_count):
+                    rotation_keyframe = Rsm.Node.RotationKeyFrame()
+                    rotation_keyframe.frame = reader.read('I')
+                    rotation_keyframe.rotation = reader.read('4F')
+                    node.rotation_keyframes.append(rotation_keyframe)
             return rsm
