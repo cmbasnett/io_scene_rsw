@@ -1,5 +1,9 @@
 # io_scene_rsw
+
 [![All Contributors](https://img.shields.io/badge/all_contributors-1-orange.svg?style=flat-square)](#contributors)
+
+This Blender addon imports GND (ground), RSM (model) and RSW (world) files from Ragnarok Online.
+
 ## Contributors
 
 Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
