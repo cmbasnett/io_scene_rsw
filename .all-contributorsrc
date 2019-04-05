@@ -1,0 +1,23 @@
+{
+  "files": [
+    "README.md"
+  ],
+  "imageSize": 100,
+  "commit": false,
+  "contributors": [
+    {
+      "login": "cmbasnett",
+      "name": "Colin Basnett",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/5035660?v=4",
+      "profile": "http://darklightgames.com",
+      "contributions": [
+        "code"
+      ]
+    }
+  ],
+  "contributorsPerLine": 7,
+  "projectName": "io_scene_rsw",
+  "projectOwner": "cmbasnett",
+  "repoType": "github",
+  "repoHost": "https://github.com"
+}
