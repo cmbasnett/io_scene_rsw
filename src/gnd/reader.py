@@ -38,6 +38,7 @@ class GndReader(object):
             gnd.textures.append(texture)
         lightmap_count = reader.read('I')[0]
         gnd.scale = reader.read('3I')  # TODO: this is probably lightmap scale
+        print(gnd.scale)
         # this is related, in some way, to the tile faces
         for i in range(lightmap_count):
             lightmap = Gnd.Lightmap()

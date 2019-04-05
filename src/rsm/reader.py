@@ -32,7 +32,7 @@ class RsmReader(object):
                 node.parent_name = reader.read_fixed_length_null_terminated_string(40)
                 node_texture_count = reader.read('I')[0]
                 node.texture_indices = reader.read('{}I'.format(node_texture_count))
-                node.floats = reader.read('9f') # offset matrix??
+                node.some_matrix = reader.read('9f') # offset matrix??
                 node.offset_ = reader.read('3f')
                 node.offset = reader.read('3f')
                 node.rotation = reader.read('4f')  # axis-angle

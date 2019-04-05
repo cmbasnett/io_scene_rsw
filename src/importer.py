@@ -91,18 +91,19 @@ class GndImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
         lightmap_size = int(math.ceil(math.sqrt(len(gnd.lightmaps) * 64) / 8) * 8)
         lightmap_tiles_per_dimension = lightmap_size / 8
         pixel_count = lightmap_size * lightmap_size
-        pixels = [0.0] * pixel_count * 4
+        pixels = [0.0] * (pixel_count * 4)
         for i, lightmap in enumerate(gnd.lightmaps):
             x, y = int(i % lightmap_tiles_per_dimension) * 8, int(i / lightmap_tiles_per_dimension) * 8
             for y2 in range(8):
                 for x2 in range(8):
-                    lum = lightmap.luminosity[y2 * 8 + x2]
-                    i = int(((y + y2) * lightmap_size) + (x + x2)) * 4
+                    idx = y2 * 8 + x2
+                    lum = lightmap.luminosity[idx]
+                    j = int(((y + y2) * lightmap_size) + (x + x2)) * 4
                     r = lum / 255.0
-                    pixels[i + 0] = r
-                    pixels[i + 1] = r
-                    pixels[i + 2] = r
-                    pixels[i + 3] = 1.0
+                    pixels[j + 0] = r
+                    pixels[j + 1] = r
+                    pixels[j + 2] = r
+                    pixels[j + 3] = 1.0
         lightmap_image = bpy.data.images.new('lightmap', lightmap_size, lightmap_size)
         lightmap_image.pixels = pixels
 
@@ -165,7 +166,7 @@ class GndImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
         '''
         uv_texture = mesh.uv_layers[0]
         lightmap_uv_layer = mesh.uv_layers[1]
-        lightmap_tiles = math.pow(lightmap_tiles_per_dimension, 2)
+        lightmap_tile_count = math.pow(lightmap_tiles_per_dimension, 2)
         for face_index, face in enumerate(gnd.faces):
             uvs = list(face.uvs)
             '''
@@ -177,15 +178,12 @@ class GndImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
                 # UVs have to be V-flipped
                 uv = uv[0], 1.0 - uv[1]
                 uv_texture.data[face_index * 4 + i].uv = uv
-            # TODO: need to know what the lightmap dim is
-            x1 = (face.lightmap_index % lightmap_tiles)
-            y1 = (face.lightmap_index / lightmap_tiles)
+            x1 = (face.lightmap_index % lightmap_tiles_per_dimension) / lightmap_tiles_per_dimension
+            y1 = int(face.lightmap_index / lightmap_tiles_per_dimension) / lightmap_tiles_per_dimension
             x2 = x1 + (1.0 / lightmap_tiles_per_dimension)
             y2 = y1 + (1.0 / lightmap_tiles_per_dimension)
             lightmap_uvs = [(x1, y1), (x2, y1), (x2, y2), (x1, y2)]
             for i, uv in enumerate(lightmap_uvs):
-                # TODO: maybe flip
-                print((i, uv))
                 lightmap_uv_layer.data[face_index * 4 + i].uv = uv
 
         bpy.context.scene.objects.link(mesh_object)
@@ -242,10 +240,9 @@ class RswImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
             except FileNotFoundError:
                 self.report({'ERROR'}, 'GND file ({}) could not be found in directory ({}).'.format(rsw.gnd_file, data_path))
                 return {'CANCELLED'}
-
         if self.should_import_models:
             # Load up all the RSM files and import them into the scene.
-            models_path = os.path.join(data_path, 'models')
+            models_path = os.path.join(data_path, 'model')
             for rsw_model in rsw.models:
                 rsm_path = os.path.join(models_path, rsw_model.filename)
                 try:
@@ -256,6 +253,12 @@ class RswImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
                 # Rename the model
                 # TODO: move this guy accordingly!
                 # Parent the model to the GND or some sort of super-object
+                print('rsw model pos')
+                print(rsw_model.position)
+                # TODO: this position seems to be somehow offset from the "center" of the map!
+                model_object.location.x += rsw_model.position[0]
+                model_object.location.y += rsw_model.position[1]
+                model_object.location.z += rsw_model.position[2]
         return {'FINISHED'}
 
     @staticmethod
@@ -336,8 +339,12 @@ class RsmImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
             # TODO: texture slots
 
             for face in node.faces:
-                bmface = bm.faces.new([bm.verts[x] for x in face.vertex_indices])
-                bmface.material_index = face.texture_index
+                try:
+                    bmface = bm.faces.new([bm.verts[x] for x in face.vertex_indices])
+                    bmface.material_index = face.texture_index
+                except ValueError as e:
+                    # TODO: we need more solid error handling here as a duplicate face throws off the UV assignment.
+                    pass
 
             bm.faces.ensure_lookup_table()
 
@@ -355,12 +362,17 @@ class RsmImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
                     uv = uv[0], 1.0 - uv[1]
                     uv_texture.data[face_index * 3 + i].uv = uv
 
-            bpy.context.scene.objects.link(mesh_object)
-
             offset = (node.offset[0], node.offset[2], node.offset[1] * -1.0)
 
             mesh_object.location = offset
-        return nodes[rsm.main_node]
+            mesh_object.scale = node.scale
+
+            bpy.context.scene.objects.link(mesh_object)
+
+        main_node = nodes[rsm.main_node]
+        main_node.location = (main_node.location[0] * -1.0, main_node.location[1] * -1.0, main_node.location[2] * -1.0)
+        # TODO: this needs to be "applied"...how?
+        return main_node
 
     def execute(self, context):
         RsmImportOperator.import_rsm(self.filepath)

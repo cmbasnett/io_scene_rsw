@@ -7,19 +7,13 @@ import os
 
 # path = './data/prt_monk/data/prt_monk.gnd'
 # path = './data/mjolnir_10/data/mjolnir_10.gnd'
-path = './data/prt_fild01/prt_fild01.gnd'
+path = r'C:\Users\Colin\Desktop\data\alberta.gnd'
 
 
 class TestGndReader(unittest.TestCase):
 
     def test_reader(self):
         gnd = GndReader.from_file(path)
-        print('width: {}'.format(gnd.width))
-        print('height: {}'.format(gnd.height))
-        print('textures: {}'.format(len(gnd.textures)))
-        print('faces: {}'.format(len(gnd.faces)))
-        print('tiles: {}'.format(len(gnd.tiles)))
-        print('lightmaps: {}'.format(len(gnd.lightmaps)))
         self.assertTrue(gnd is not None)
 
 
@@ -48,7 +42,10 @@ class TestGndConsistency(unittest.TestCase):
         num_dim = dim / 8
         image = Image.new('L', (dim, dim))
         for i, lightmap in enumerate(self.gnd.lightmaps):
-            print(lightmap.color)
+            x, y = int(i % num_dim) * 8, int(i / num_dim) * 8
+            for x2 in range(8):
+                for y2 in range(8):
+                    image.putpixel((x + x2, y + y2), lightmap.luminosity[y2 * 8 + x2])
         image.save('lightmap.bmp')
         self.assertTrue(True)
 

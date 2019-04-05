@@ -46,6 +46,15 @@ class TestRsmReader(unittest.TestCase):
         rsm = RsmReader.from_file('./rsm_tests/fountain.rsm')
         self.assertIsNotNone(rsm)
 
+    def test_tree(self):
+        rsm = RsmReader.from_file(r'C:/Users/Colin/Desktop/data/model/나무잡초꽃/나무02.rsm')
+        for node in rsm.nodes:
+            print(node.some_matrix) # not sure what this is tbh
+            print(node.offset)  # the "main" model needs to use this offset
+            print(node.offset_)
+            print(node.scale)
+        self.assertIsNotNone(rsm)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
