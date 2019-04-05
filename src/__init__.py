@@ -1,7 +1,7 @@
 if __name__ != 'src':  # TODO: temp
     bl_info = {
         'name': 'Ragnarok Online GND Format',
-        'description': 'Import GND files from Ragnarok Online.',
+        'description': 'Import RSW, RSM and GND files from Ragnarok Online.',
         'author': 'Colin Basnett',
         'version': (1, 0, 0),
         'blender': (2, 79, 0),
@@ -17,20 +17,24 @@ if __name__ != 'src':  # TODO: temp
         import importlib
         if 'gnd'        in locals(): importlib.reload(gnd)
         if 'rsm'        in locals(): importlib.reload(rsm)
+        if 'rsw'        in locals(): importlib.reload(rsw)
         if 'importer'   in locals(): importlib.reload(importer)
 
     import bpy
     from .gnd import gnd
     from .rsm import rsm
+    from .rsw import rsw
     from . import importer
 
     def register():
         bpy.utils.register_module(__name__)
         bpy.types.INFO_MT_file_import.append(importer.GndImportOperator.menu_func_import)
         bpy.types.INFO_MT_file_import.append(importer.RsmImportOperator.menu_func_import)
+        bpy.types.INFO_MT_file_import.append(importer.RswImportOperator.menu_func_import)
 
 
     def unregister():
         bpy.utils.unregister_module(__name__)
         bpy.types.INFO_MT_file_import.remove(importer.GndImportOperator.menu_func_import)
         bpy.types.INFO_MT_file_import.remove(importer.RsmImportOperator.menu_func_import)
+        bpy.types.INFO_MT_file_import.remove(importer.RswImportOperator.menu_func_import)

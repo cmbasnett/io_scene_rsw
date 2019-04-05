@@ -11,6 +11,8 @@ class Rsw(object):
 
     class Lighting(object):
         def __init__(self):
+            self.longitude = 45
+            self.latitude = 45
             self.ambient = (0.0, 0.0, 0.0)
             self.diffuse = (0.0, 0.0, 0.0)
             self.shadow = (0.0, 0.0, 0.0)

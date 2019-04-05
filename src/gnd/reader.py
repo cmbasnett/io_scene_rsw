@@ -1,6 +1,13 @@
 import io
 from .gnd import Gnd
 from ..io.reader import BinaryFileReader
+from itertools import islice
+
+
+# https://stackoverflow.com/a/22045226/2209008
+def chunk(it, size):
+    it = iter(it)
+    return iter(lambda: tuple(islice(it, size)), ())
 
 
 class GndReader(object):
@@ -30,12 +37,12 @@ class GndReader(object):
             texture.data = reader.read('48B')
             gnd.textures.append(texture)
         lightmap_count = reader.read('I')[0]
-        gnd.scale = reader.read('3I') # TODO: this is probably lightmap scale
+        gnd.scale = reader.read('3I')  # TODO: this is probably lightmap scale
         # this is related, in some way, to the tile faces
         for i in range(lightmap_count):
             lightmap = Gnd.Lightmap()
             lightmap.luminosity = reader.read('64B')
-            lightmap.color = reader.read('192B')
+            lightmap.color = list(chunk(reader.read('192B'), 3))
             gnd.lightmaps.append(lightmap)
         face_count = reader.read('I')[0]
         for i in range(face_count):

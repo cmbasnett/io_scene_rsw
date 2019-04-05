@@ -48,10 +48,7 @@ class TestGndConsistency(unittest.TestCase):
         num_dim = dim / 8
         image = Image.new('L', (dim, dim))
         for i, lightmap in enumerate(self.gnd.lightmaps):
-            x, y = int(i % num_dim) * 8, int(i / num_dim) * 8
-            for x2 in range(8):
-                for y2 in range(8):
-                    image.putpixel((x + x2, y + y2), lightmap.luminosity[y2 * 8 + x2])
+            print(lightmap.color)
         image.save('lightmap.bmp')
         self.assertTrue(True)
 
