@@ -55,6 +55,17 @@ class TestRsmReader(unittest.TestCase):
             print(node.scale)
         self.assertIsNotNone(rsm)
 
+    def test_bush(self):
+        rsm = RsmReader.from_file(r'./rsm_tests/덤불02.rsm')
+        node = rsm.nodes[0]
+        print(dir(node))
+        print(node.some_matrix)
+        print(node.rotation)
+        print(node.offset)
+        print(node.offset_)
+        print(node.scale)
+        return self.assertIsNotNone(rsm)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

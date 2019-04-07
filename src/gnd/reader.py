@@ -2,6 +2,7 @@ import io
 from .gnd import Gnd
 from ..io.reader import BinaryFileReader
 from itertools import islice
+from ..semver.version import Version
 
 
 # https://stackoverflow.com/a/22045226/2209008
@@ -26,19 +27,18 @@ class GndReader(object):
         if magic != b'GRGN':
             raise RuntimeError('Unrecognized file format.')
         gnd = Gnd()
-        unk1 = reader.read('2b')  # Always seems to be 1,7 (maybe some sort of version?)
-        unk2 = reader.read('2I2s2I')
-        gnd.width, gnd.height = unk2[0], unk2[1]
-        # the first and second ones could be the tile width/height??
-        texture_count = unk2[3]  # maybe?
+        version = Version(*reader.read('2B'))
+        gnd.width, gnd.height = reader.read('2I')
+        gnd.scale = reader.read('f')[0]
+        texture_count = reader.read('I')[0]
+        texture_name_length = reader.read('I')[0]
         for i in range(texture_count):
             texture = Gnd.Texture()
-            texture.path = reader.read_fixed_length_null_terminated_string(32)
-            texture.data = reader.read('48B')
+            texture.path = reader.read_fixed_length_null_terminated_string(texture_name_length)
             gnd.textures.append(texture)
         lightmap_count = reader.read('I')[0]
-        gnd.scale = reader.read('3I')  # TODO: this is probably lightmap scale
-        print(gnd.scale)
+        gnd.lightmap_size = reader.read('3I')
+        print(gnd.lightmap_size)
         # this is related, in some way, to the tile faces
         for i in range(lightmap_count):
             lightmap = Gnd.Lightmap()
