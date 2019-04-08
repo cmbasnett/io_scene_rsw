@@ -54,15 +54,19 @@ class RswImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
             # Load up all the RSM files and import them into the scene.
             models_path = os.path.join(data_path, 'model')
             rsm_options = RsmImportOptions()
+            model_data = dict()
             for rsw_model in rsw.models:
-                rsm_path = os.path.join(models_path, rsw_model.filename)
-                try:
-                    model_object = RsmImportOperator.import_rsm(rsm_path, rsm_options)
-                except FileNotFoundError:
-                    self.report({'ERROR'}, 'RSM file ({}) could not be found in directory ({}).'.format(rsw_model.filename, models_path))
-                    return {'CANCELLED'}
-                # Rename the model
-                # TODO: this position seems to be somehow offset from the "center" of the map!
+                if rsw_model.filename in model_data:
+                    model_object = bpy.data.objects.new(rsw_model.name, model_data[rsw_model.filename])
+                    bpy.context.scene.objects.link(model_object)
+                else:
+                    rsm_path = os.path.join(models_path, rsw_model.filename)
+                    try:
+                        model_object = RsmImportOperator.import_rsm(rsm_path, rsm_options)
+                        model_data[rsw_model.filename] = model_object.data
+                    except FileNotFoundError:
+                        self.report({'ERROR'}, 'RSM file ({}) could not be found in directory ({}).'.format(rsw_model.filename, models_path))
+                        return {'CANCELLED'}
                 x, z, y = rsw_model.position
                 model_object.location += Vector((x, y, -z))
         return {'FINISHED'}
