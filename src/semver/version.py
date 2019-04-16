@@ -6,7 +6,7 @@ class Version(object):
         self.minor = minor
 
     def __eq__(self, other):
-        return self.major == other.major and self.minor == other.major
+        return self.major == other.major and self.minor == other.minor
 
     def __lt__(self, other):
         return self.major < other.major or (self.major == other.major and self.minor < other.minor)
