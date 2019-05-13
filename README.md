@@ -2,7 +2,10 @@
 
 [![All Contributors](https://img.shields.io/badge/all_contributors-1-orange.svg?style=flat-square)](#contributors)
 
-This Blender addon imports GND (ground), RSM (model) and RSW (world) files from Ragnarok Online.
+This Blender 2.79 addon allows you to import ground (`*.gnd`), model (`*.rsm`) and map (`*.rsw`) files from *Ragnarok Online*.
+
+## Notes
+This addon is a work in progress! If you would like to help with this project, please contact me on Discord (Colin Basnett#0827).
 
 ## Contributors
 
