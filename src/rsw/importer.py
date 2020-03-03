@@ -5,10 +5,10 @@ from mathutils import Vector, Matrix, Quaternion
 from bpy.props import StringProperty, BoolProperty, FloatProperty
 from ..utils.utils import get_data_path
 from ..rsw.reader import RswReader
-from ..gnd.importer import GndImportOptions, GndImportOperator
-from ..rsm.importer import RsmImportOptions, RsmImportOperator
+from ..gnd.importer import GndImportOptions, GND_OT_ImportOperator
+from ..rsm.importer import RsmImportOptions, RSM_OT_ImportOperator
 
-class RswImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
+class RSW_OT_ImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
     """This appears in the tooltip of the operator and in the generated docs"""
     bl_idname = 'io_scene_rsw.rsw_import'  # important since its how bpy.ops.import_test.some_data is constructed
     bl_label = 'Import Ragnarok Online RSW'
@@ -17,20 +17,20 @@ class RswImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
 
     filename_ext = ".rsw"
 
-    filter_glob = StringProperty(
+    filter_glob: StringProperty(
         default="*.rsw",
         options={'HIDDEN'},
         maxlen=255,  # Max internal buffer length, longer would be clamped.
     )
 
-    data_path = StringProperty(
+    data_path: StringProperty(
         default='',
         maxlen=255,
         subtype='DIR_PATH'
     )
 
-    should_import_gnd = BoolProperty(default=True)
-    should_import_models = BoolProperty(default=True)
+    should_import_gnd: BoolProperty(default=True)
+    should_import_models: BoolProperty(default=True)
 
     def execute(self, context):
         # Load the RSW file
@@ -40,16 +40,22 @@ class RswImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
         data_path = get_data_path(self.filepath)
 
         # TODO: create an EMPTY object that is the RSW parent object
+        name = os.path.basename(self.filepath)
+
+        collection = bpy.data.collections.new(name)
+        bpy.context.scene.collection.children.link(collection)
 
         # Load the GND file and import it into the scene.
         if self.should_import_gnd:
             gnd_path = os.path.join(data_path, rsw.gnd_file)
             try:
                 options = GndImportOptions()
-                gnd_object = GndImportOperator.import_gnd(gnd_path, options)
+                gnd_object = GND_OT_ImportOperator.import_gnd(gnd_path, options)
+                collection.objects.link(gnd_object)
             except FileNotFoundError:
                 self.report({'ERROR'}, 'GND file ({}) could not be found in directory ({}).'.format(rsw.gnd_file, data_path))
                 return {'CANCELLED'}
+
         if self.should_import_models:
             # Load up all the RSM files and import them into the scene.
             models_path = os.path.join(data_path, 'model')
@@ -58,19 +64,21 @@ class RswImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
             for rsw_model in rsw.models:
                 if rsw_model.filename in model_data:
                     model_object = bpy.data.objects.new(rsw_model.name, model_data[rsw_model.filename])
-                    bpy.context.scene.objects.link(model_object)
                 else:
-                    rsm_path = os.path.join(models_path, rsw_model.filename)
+                    # Converts Windows filename separators to the OS's path separator
+                    filename = rsw_model.filename.replace('\\', os.path.sep)
+                    rsm_path = os.path.join(models_path, filename)
                     try:
-                        model_object = RsmImportOperator.import_rsm(rsm_path, rsm_options)
+                        model_object = RSM_OT_ImportOperator.import_rsm(rsm_path, rsm_options)
                         model_data[rsw_model.filename] = model_object.data
                     except FileNotFoundError:
-                        self.report({'ERROR'}, 'RSM file ({}) could not be found in directory ({}).'.format(rsw_model.filename, models_path))
+                        self.report({'ERROR'}, 'RSM file ({}) could not be found in directory ({}).'.format(filename, models_path))
                         return {'CANCELLED'}
+                collection.objects.link(model_object)
                 x, z, y = rsw_model.position
                 model_object.location += Vector((x, y, -z))
         return {'FINISHED'}
 
     @staticmethod
     def menu_func_import(self, context):
-        self.layout.operator(RswImportOperator.bl_idname, text='Ragnarok Online RSW (.rsw)')
+        self.layout.operator(RSW_OT_ImportOperator.bl_idname, text='Ragnarok Online RSW (.rsw)')

@@ -15,7 +15,7 @@ class GndImportOptions(object):
         self.lightmap_factor = lightmap_factor
 
 
-class GndImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
+class GND_OT_ImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
     """This appears in the tooltip of the operator and in the generated docs"""
     bl_idname = 'io_scene_rsw.gnd_import'  # important since its how bpy.ops.import_test.some_data is constructed
     bl_label = 'Import Ragnarok Online GND'
@@ -24,17 +24,17 @@ class GndImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
 
     filename_ext = ".gnd"
 
-    filter_glob = StringProperty(
+    filter_glob: StringProperty(
         default="*.gnd",
         options={'HIDDEN'},
         maxlen=255,  # Max internal buffer length, longer would be clamped.
     )
 
-    should_import_lightmaps = BoolProperty(
+    should_import_lightmaps: BoolProperty(
         default=True
     )
 
-    lightmap_factor = FloatProperty(
+    lightmap_factor: FloatProperty(
         default=0.5,
         min=0.0,
         max=1.0,
@@ -82,29 +82,31 @@ class GndImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
         for i, texture in enumerate(gnd.textures):
             texture_path = texture.path
             material = bpy.data.materials.new(texture_path)
-            material.diffuse_intensity = 1.0
             material.specular_intensity = 0.0
+            material.use_nodes = True
             materials.append(material)
+
+            bsdf = material.node_tree.nodes['Principled BSDF']
+            bsdf.inputs['Specular'].default_value = 0.0
+            texImage = material.node_tree.nodes.new('ShaderNodeTexImage')
+            material.node_tree.links.new(bsdf.inputs['Base Color'], texImage.outputs['Color'])
 
             ''' Load diffuse texture. '''
             diffuse_texture = bpy.data.textures.new(texture_path, type='IMAGE')
             data_path = get_data_path(directory_name)
             texpath = os.path.join(data_path, 'texture', texture_path)
+
             try:
-                diffuse_texture.image = bpy.data.images.load(texpath, check_existing=True)
+                texImage.image = bpy.data.images.load(texpath, check_existing=True)
             except RuntimeError:
                 pass
 
-            ''' Add diffuse texture slot to material. '''
-            diffuse_texture_slot = material.texture_slots.add()
-            diffuse_texture_slot.texture = diffuse_texture
-
-            if options.should_import_lightmaps:
-                ''' Add light map texture slot to material.'''
-                lightmap_texture_slot = material.texture_slots.add()
-                lightmap_texture_slot.texture = lightmap_texture
-                lightmap_texture_slot.diffuse_color_factor = options.lightmap_factor
-                lightmap_texture_slot.blend_type = 'MULTIPLY'
+            # if options.should_import_lightmaps:
+            #     ''' Add light map texture slot to material.'''
+            #     lightmap_texture_slot = material.texture_slots.add()
+            #     lightmap_texture_slot.texture = lightmap_texture
+            #     lightmap_texture_slot.diffuse_color_factor = options.lightmap_factor
+            #     lightmap_texture_slot.blend_type = 'MULTIPLY'
 
         bm = bmesh.new()
         bm.from_mesh(mesh)
@@ -146,23 +148,23 @@ class GndImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
                     vertex_offset += 4
 
         bm.faces.ensure_lookup_table()
-
         bm.to_mesh(mesh)
 
         ''' Add materials to mesh. '''
-        uv_texture = mesh.uv_textures.new()
-        lightmap_uv_texture = mesh.uv_textures.new()
+        uv_layer = mesh.uv_layers.new()
+        lightmap_uv_texture = mesh.uv_layers.new()
+
         for material in materials:
             ''' Create UV map. '''
             mesh.materials.append(material)
-            material.texture_slots[0].uv_layer = uv_texture.name
-            if options.should_import_lightmaps:
-                material.texture_slots[1].uv_layer = lightmap_uv_texture.name
+            # material.texture_slots[0].uv_layer = uv_layer.name
+            # if options.should_import_lightmaps:
+                # material.texture_slots[1].uv_layer = lightmap_uv_texture.name
 
         '''
         Assign texture coordinates.
         '''
-        uv_texture = mesh.uv_layers[0]
+        uv_layer = mesh.uv_layers[0]
         lightmap_uv_layer = mesh.uv_layers[1]
         for face_index, face in enumerate(gnd.faces):
             uvs = list(face.uvs)
@@ -174,7 +176,7 @@ class GndImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
             for i, uv in enumerate(uvs):
                 # UVs have to be V-flipped
                 uv = uv[0], 1.0 - uv[1]
-                uv_texture.data[face_index * 4 + i].uv = uv
+                uv_layer.data[face_index * 4 + i].uv = uv
             if options.should_import_lightmaps:
                 x1 = (face.lightmap_index % lightmap_tiles_per_dimension) / lightmap_tiles_per_dimension
                 y1 = int(face.lightmap_index / lightmap_tiles_per_dimension) / lightmap_tiles_per_dimension
@@ -184,7 +186,10 @@ class GndImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
                 for i, uv in enumerate(lightmap_uvs):
                     lightmap_uv_layer.data[face_index * 4 + i].uv = uv
 
-        bpy.context.scene.objects.link(mesh_object)
+        collection = bpy.data.collections.new(name)
+        bpy.context.scene.collection.children.link(collection)
+        collection.objects.link(mesh_object)
+
         return mesh_object
 
     def execute(self, context):
@@ -192,10 +197,10 @@ class GndImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
             should_import_lightmaps=self.should_import_lightmaps,
             lightmap_factor=self.lightmap_factor
         )
-        GndImportOperator.import_gnd(self.filepath, options)
+        GND_OT_ImportOperator.import_gnd(self.filepath, options)
         return {'FINISHED'}
 
     @staticmethod
     def menu_func_import(self, context):
-        self.layout.operator(GndImportOperator.bl_idname, text='Ragnarok Online GND (.gnd)')
+        self.layout.operator(GND_OT_ImportOperator.bl_idname, text='Ragnarok Online GND (.gnd)')
 

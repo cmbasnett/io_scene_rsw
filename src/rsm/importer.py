@@ -13,7 +13,7 @@ class RsmImportOptions(object):
     def __init__(self, should_import_smoothing_groups:bool = True):
         self.should_import_smoothing_groups = should_import_smoothing_groups
 
-class RsmImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
+class RSM_OT_ImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
     """This appears in the tooltip of the operator and in the generated docs"""
     bl_idname = 'io_scene_rsw.rsm_import'  # important since its how bpy.ops.import_test.some_data is constructed
     bl_label = 'Import Ragnarok Online RSM'
@@ -22,43 +22,48 @@ class RsmImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
 
     filename_ext = ".rsm"
 
-    filter_glob = StringProperty(
+    filter_glob: StringProperty(
         default="*.rsm",
         options={'HIDDEN'},
         maxlen=255,  # Max internal buffer length, longer would be clamped.
     )
 
-    should_import_smoothing_groups = BoolProperty(
+    should_import_smoothing_groups: BoolProperty(
         default=True
     )
 
     @staticmethod
     def import_rsm(filepath, options):
         rsm = RsmReader.from_file(filepath)
+        name = os.path.basename(filepath)
         data_path = get_data_path(filepath)
         materials = []
+
+        collection = bpy.data.collections.new(name)
+        bpy.context.scene.collection.children.link(collection)
+
         for texture_path in rsm.textures:
             material = bpy.data.materials.new(texture_path)
-            material.diffuse_intensity = 1.0
             material.specular_intensity = 0.0
+            material.use_nodes = True
+            materials.append(material)
 
             # TODO: search backwards until we hit the "data" directory (or slough off bits until we
             # hit hte data directory?)
 
             ''' Create texture. '''
-            texture = bpy.data.textures.new(texture_path, type='IMAGE')
+            bsdf = material.node_tree.nodes['Principled BSDF']
+            bsdf.inputs['Specular'].default_value = 0.0
+            texImage = material.node_tree.nodes.new('ShaderNodeTexImage')
+            material.node_tree.links.new(bsdf.inputs['Base Color'], texImage.outputs['Color'])
 
-            if data_path != '':
-                texpath = os.path.join(data_path, 'texture', texture_path)
-                try:
-                    texture.image = bpy.data.images.load(texpath, check_existing=True)
-                except RuntimeError:
-                    pass
+            ''' Load texture. '''
+            texpath = os.path.join(data_path, 'texture', texture_path)
 
-            texture_slot = material.texture_slots.add()
-            texture_slot.texture = texture
-
-            materials.append(material)
+            try:
+                texImage.image = bpy.data.images.load(texpath, check_existing=True)
+            except RuntimeError:
+                pass
 
         nodes = {}
         for node in rsm.nodes:
@@ -71,8 +76,7 @@ class RsmImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
                 mesh_object.parent = nodes[node.parent_name]
 
             ''' Add UV map to each material. '''
-            uv_texture = mesh.uv_textures.new()
-            material.texture_slots[0].uv_layer = uv_texture.name
+            uv_layer = mesh.uv_layers.new()
 
             bm = bmesh.new()
             bm.from_mesh(mesh)
@@ -129,15 +133,15 @@ class RsmImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
 
             mesh_object.scale = node.scale
 
-            bpy.context.scene.objects.link(mesh_object)
+            collection.objects.link(mesh_object)
 
             '''
             Apply smoothing groups.
             '''
             if options.should_import_smoothing_groups:
                 bpy.ops.object.select_all(action='DESELECT')
-                mesh_object.select = True
-                bpy.context.scene.objects.active = mesh_object
+                mesh_object.select_set(True)
+                bpy.context.view_layer.objects.active = mesh_object
                 for smoothing_group, face_indices in smoothing_group_faces.items():
                     '''
                     Select all faces in the smoothing group.
@@ -164,10 +168,10 @@ class RsmImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
         main_node = nodes[rsm.main_node]
         if main_node is not None:
             bpy.ops.object.select_all(action='DESELECT')
-            mesh_object.select = True
-            bpy.context.scene.objects.active = mesh_object
+            mesh_object.select_set(True)
+            bpy.context.view_layer.objects.active = mesh_object
             bpy.ops.object.transform_apply(location=True, scale=True, rotation=True)
-            mesh_object.select = False
+            mesh_object.select_set(False)
             bpy.ops.object.select_all(action='DESELECT')
 
         return nodes[rsm.main_node]
@@ -176,9 +180,9 @@ class RsmImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
         options = RsmImportOptions(
             should_import_smoothing_groups=self.should_import_smoothing_groups
         )
-        RsmImportOperator.import_rsm(self.filepath, options)
+        RSM_OT_ImportOperator.import_rsm(self.filepath, options)
         return {'FINISHED'}
 
     @staticmethod
     def menu_func_import(self, context):
-        self.layout.operator(RsmImportOperator.bl_idname, text='Ragnarok Online RSM (.rsm)')
+        self.layout.operator(RSM_OT_ImportOperator.bl_idname, text='Ragnarok Online RSM (.rsm)')
