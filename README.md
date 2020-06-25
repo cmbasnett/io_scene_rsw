@@ -2,7 +2,7 @@
 
 [![All Contributors](https://img.shields.io/badge/all_contributors-1-orange.svg?style=flat-square)](#contributors)
 
-This Blender 2.79 addon allows you to import ground (`*.gnd`), model (`*.rsm`) and map (`*.rsw`) files from *Ragnarok Online*.
+This Blender 2.8x addon allows you to import ground (`*.gnd`), model (`*.rsm`) and map (`*.rsw`) files from *Ragnarok Online*.
 
 ![](https://raw.githubusercontent.com/cmbasnett/io_scene_rsw/master/doc/readme/example.png)
 
