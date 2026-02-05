@@ -3,6 +3,7 @@ import bpy
 import bpy_extras
 import bmesh
 import math
+import mathutils
 from mathutils import Vector, Matrix, Quaternion
 from bpy.props import StringProperty, BoolProperty, FloatProperty
 from ..utils.utils import get_data_path
@@ -33,6 +34,24 @@ class RSM_OT_ImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
     )
 
     @staticmethod
+    def set_origin_to_bottom(obj):
+        bpy.context.view_layer.objects.active = obj
+        obj.select_set(True)
+        
+        # 1. Move the cursor to the lowest point of the boundary box to position the model correctly, as in the game.
+        mw = obj.matrix_world
+        local_bbox = [obj.matrix_world @ mathutils.Vector(v) for v in obj.bound_box]
+        bottom_z = min(v.z for v in local_bbox)
+        center_x = sum(v.x for v in local_bbox) / 8
+        center_y = sum(v.y for v in local_bbox) / 8
+        
+        bpy.context.scene.cursor.location = (center_x, center_y, bottom_z)
+        
+        # 2. ย้าย Origin ไปที่ Cursor
+        bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
+        obj.select_set(False)
+
+    @staticmethod
     def import_rsm(filepath, options):
         rsm = RsmReader.from_file(filepath)
         name = os.path.basename(filepath)
@@ -43,7 +62,10 @@ class RSM_OT_ImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
         bpy.context.scene.collection.children.link(collection)
 
         for texture_path in rsm.textures:
-            material = bpy.data.materials.new(texture_path)
+            # png_texture_path = texture_path[:-3] + "png"
+            png_texture_path = texture_path
+            
+            material = bpy.data.materials.new(png_texture_path)
             material.specular_intensity = 0.0
             material.use_nodes = True
             materials.append(material)
@@ -53,12 +75,17 @@ class RSM_OT_ImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
 
             ''' Create texture. '''
             bsdf = material.node_tree.nodes['Principled BSDF']
-            bsdf.inputs['Specular'].default_value = 0.0
+            if 'Specular IOR Level' in bsdf.inputs:
+                bsdf.inputs['Specular IOR Level'].default_value = 0.0
+            else:
+                bsdf.inputs['Specular'].default_value = 0.0
             texImage = material.node_tree.nodes.new('ShaderNodeTexImage')
+
             material.node_tree.links.new(bsdf.inputs['Base Color'], texImage.outputs['Color'])
+            # material.node_tree.links.new(bsdf.inputs['Alpha'], texImage.outputs['Alpha'])
 
             ''' Load texture. '''
-            texpath = os.path.join(data_path, 'texture', texture_path)
+            texpath = os.path.join(data_path, 'texture', png_texture_path)
 
             try:
                 texImage.image = bpy.data.images.load(texpath, check_existing=True)
@@ -92,19 +119,23 @@ class RSM_OT_ImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
             '''
             Build smoothing group face look-up-table.
             '''
+            actual_face_index = 0
             smoothing_group_faces = dict()
             for face_index, face in enumerate(node.faces):
                 try:
                     bmface = bm.faces.new([bm.verts[x] for x in face.vertex_indices])
                     bmface.material_index = face.texture_index
                 except ValueError as e:
-                    # TODO: we need more solid error handling here as a duplicate face throws off the UV assignment.
-                    raise NotImplementedError
+                    bmface = None
+                except Exception as e:
+                    print(f"Skipping a face due to error: {e}")
                 if options.should_import_smoothing_groups:
-                    bmface.smooth = True
+                    if bmface:
+                        bmface.smooth = True
                     if face.smoothing_group not in smoothing_group_faces:
                         smoothing_group_faces[face.smoothing_group] = []
-                    smoothing_group_faces[face.smoothing_group].append(face_index)
+                    smoothing_group_faces[face.smoothing_group].append(actual_face_index)
+                actual_face_index += 1
 
             bm.faces.ensure_lookup_table()
             bm.to_mesh(mesh)
@@ -119,7 +150,10 @@ class RSM_OT_ImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                     # UVs have to be V-flipped (maybe)
                     uv = uv[1:]
                     uv = uv[0], 1.0 - uv[1]
-                    uv_texture.data[face_index * 3 + i].uv = uv
+                    try:
+                        uv_texture.data[face_index * 3 + i].uv = uv
+                    except IndexError as e:
+                        print(f"Skipping uv_texture IndexError error: {e}")
 
             '''
             Apply transforms.
@@ -148,7 +182,10 @@ class RSM_OT_ImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                     '''
                     bpy.ops.object.mode_set(mode='OBJECT')
                     for face_index in face_indices:
-                        mesh.polygons[face_index].select = True
+                        try:
+                            mesh.polygons[face_index].select = True
+                        except IndexError as e:
+                            print(f"Skipping face_index IndexError error: {e}")
                     bpy.ops.object.mode_set(mode='EDIT')
                     bpy.ops.mesh.select_mode(type='FACE')
                     '''
@@ -172,6 +209,7 @@ class RSM_OT_ImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
             bpy.context.view_layer.objects.active = mesh_object
             bpy.ops.object.transform_apply(location=True, scale=True, rotation=True)
             mesh_object.select_set(False)
+            RSM_OT_ImportOperator.set_origin_to_bottom(main_node)
             bpy.ops.object.select_all(action='DESELECT')
 
         return nodes[rsm.main_node]
@@ -182,6 +220,8 @@ class RSM_OT_ImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
         )
         RSM_OT_ImportOperator.import_rsm(self.filepath, options)
         return {'FINISHED'}
+
+
 
     @staticmethod
     def menu_func_import(self, context):

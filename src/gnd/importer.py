@@ -1,5 +1,6 @@
 import os
 import bpy
+import mathutils
 import bpy_extras
 import bmesh
 import math
@@ -42,6 +43,26 @@ class GND_OT_ImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
     )
 
     @staticmethod
+    def set_origin(obj):
+        bpy.context.view_layer.objects.active = obj
+        obj.select_set(True)
+
+        obj_location = obj.location.copy()
+        
+        # 1. Move the cursor to the bottom and corners of the rectangle to correct any distorted map positioning.
+        mw = obj.matrix_world
+        local_bbox = [obj.matrix_world @ mathutils.Vector(v) for v in obj.bound_box]
+        bottom_z = obj_location.z
+        center_x = min(v.x for v in local_bbox)
+        center_y = min(v.y for v in local_bbox)
+        
+        bpy.context.scene.cursor.location = (center_x, center_y, bottom_z)
+        
+        # 2. Move the Origin to the Cursor.
+        bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
+        obj.select_set(False)
+
+    @staticmethod
     def import_gnd(filepath, options: GndImportOptions):
         gnd = GndReader.from_file(filepath)
         name = os.path.splitext(os.path.basename(filepath))[0]
@@ -80,6 +101,7 @@ class GND_OT_ImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
         ''' Create materials. '''
         materials = []
         for i, texture in enumerate(gnd.textures):
+            # texture_path = texture.path[:-3] + "png"
             texture_path = texture.path
             material = bpy.data.materials.new(texture_path)
             material.specular_intensity = 0.0
@@ -87,10 +109,14 @@ class GND_OT_ImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
             materials.append(material)
 
             bsdf = material.node_tree.nodes['Principled BSDF']
-            bsdf.inputs['Specular'].default_value = 0.0
+            if 'Specular IOR Level' in bsdf.inputs:
+                bsdf.inputs['Specular IOR Level'].default_value = 0.0
+            else:
+                bsdf.inputs['Specular'].default_value = 0.0
             texImage = material.node_tree.nodes.new('ShaderNodeTexImage')
             material.node_tree.links.new(bsdf.inputs['Base Color'], texImage.outputs['Color'])
-
+            # material.node_tree.links.new(bsdf.inputs['Alpha'], texImage.outputs['Alpha'])
+            
             ''' Load diffuse texture. '''
             diffuse_texture = bpy.data.textures.new(texture_path, type='IMAGE')
             data_path = get_data_path(directory_name)
@@ -189,6 +215,7 @@ class GND_OT_ImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
         collection = bpy.data.collections.new(name)
         bpy.context.scene.collection.children.link(collection)
         collection.objects.link(mesh_object)
+        GND_OT_ImportOperator.set_origin(mesh_object)
 
         return mesh_object
 

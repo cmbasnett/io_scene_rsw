@@ -41,6 +41,11 @@ class Rsw(object):
             self.rotation = (0.0, 0.0, 0.0)
             self.scale = (1.0, 1.0, 1.0)
 
+    class Version(object):
+        def __init__(self):
+            self.major = 0
+            self.minor = 0
+
     def __init__(self):
         self.ini_file = ''
         self.gnd_file = ''
@@ -51,5 +56,6 @@ class Rsw(object):
         self.models = []
         self.light_sources = []
         self.sounds = []
+        self.rsw_version = Rsw.Version()
         self.effects = []
         pass

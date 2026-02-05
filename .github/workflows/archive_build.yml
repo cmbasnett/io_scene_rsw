@@ -1,0 +1,33 @@
+name: Zip and Archive Artifact
+
+on:
+  push:
+    tags:
+      - 'v*.*.*' # Trigger when a tag starting with 'v' is pushed
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v4 # Action to get your code onto the runner machine.
+
+      - name: Zip artifact for deployment
+        # The 'zip' command is generally available on Ubuntu runners.
+        # The -r flag is for recursive zipping of directories.
+        run: cd src && zip -r ../io_scene_rsw.zip . && cd ..
+
+      - name: Upload zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: project-files
+          path: io_scene_rsw.zip # The path to the created zip file.
+          retention-days: 5 # Optional: How long to keep the artifact (default is 90 days)
+      - name: Create Release and Upload Asset
+        uses: softprops/action-gh-release@v1
+        with:
+          files: io_scene_rsw.zip # Glob patterns are supported
+          name: "Release ${{ github.ref_name }}"
+          body: "Automatic release notes for ${{ github.ref_name }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

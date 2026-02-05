@@ -13,7 +13,7 @@ class RswReader(object):
         pass
 
     @staticmethod
-    def from_file(path):
+    def from_file(path) -> Rsw:
         rsw = Rsw()
         with open(path, 'rb') as f:
             reader = BinaryFileReader(f)
@@ -97,4 +97,6 @@ class RswReader(object):
             if version >= Version(2, 1):
                 # Not necessary for our purposes, so just ignore it.
                 pass
+            rsw.rsw_version.major = version.major
+            rsw.rsw_version.minor = version.minor
         return rsw

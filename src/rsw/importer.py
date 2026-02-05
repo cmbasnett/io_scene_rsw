@@ -1,6 +1,7 @@
 import os
 import bpy
 import bpy_extras
+import math
 from mathutils import Vector, Matrix, Quaternion
 from bpy.props import StringProperty, BoolProperty, FloatProperty
 from ..utils.utils import get_data_path
@@ -16,6 +17,8 @@ class RSW_OT_ImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
     bl_region_type = 'WINDOW'
 
     filename_ext = ".rsw"
+
+    scale_factor = 0.1
 
     filter_glob: StringProperty(
         default="*.rsw",
@@ -35,6 +38,8 @@ class RSW_OT_ImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
     def execute(self, context):
         # Load the RSW file
         rsw = RswReader.from_file(self.filepath)
+        
+        self.report({'INFO'}, f'Loaded RSW version: {rsw.rsw_version.major}.{rsw.rsw_version.minor}')
 
         # Find the data path.
         data_path = get_data_path(self.filepath)
@@ -46,15 +51,39 @@ class RSW_OT_ImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
         bpy.context.scene.collection.children.link(collection)
 
         # Load the GND file and import it into the scene.
+        gnd_x_width = 0
+        gnd_y_height = 0
+        gnd_z_depth = 0
+        
         if self.should_import_gnd:
             gnd_path = os.path.join(data_path, rsw.gnd_file)
             try:
                 options = GndImportOptions()
                 gnd_object = GND_OT_ImportOperator.import_gnd(gnd_path, options)
-                collection.objects.link(gnd_object)
             except FileNotFoundError:
-                self.report({'ERROR'}, 'GND file ({}) could not be found in directory ({}).'.format(rsw.gnd_file, data_path))
-                return {'CANCELLED'}
+                try:
+                    gnd_path = gnd_path + name[:-4] + '.gnd'
+                    options = GndImportOptions()
+                    gnd_object = GND_OT_ImportOperator.import_gnd(gnd_path, options)
+                except FileNotFoundError:
+                    self.report({'ERROR'}, 'GND file ({}) could not be found in directory ({}).'.format(rsw.gnd_file, data_path))
+                    return {'CANCELLED'}
+            gnd_x_width = gnd_object.dimensions[0]
+            gnd_y_height = gnd_object.dimensions[1]
+            gnd_z_depth = gnd_object.dimensions[2]
+            scale_x, scale_z, scale_y = gnd_object.scale
+            gnd_object.scale = Vector((scale_x * self.scale_factor, scale_y * self.scale_factor, scale_z * self.scale_factor))
+            gnd_object.location = Vector((0, 0, 0))
+            collection.objects.link(gnd_object)
+
+            
+        # set position of gnd object
+        if gnd_x_width > 0:
+            gnd_x_width = gnd_x_width /2
+        if gnd_y_height > 0:
+            gnd_y_height = gnd_y_height /2
+        if gnd_z_depth > 0:
+            gnd_z_depth = gnd_z_depth /2
 
         if self.should_import_models:
             # Load up all the RSM files and import them into the scene.
@@ -74,9 +103,14 @@ class RSW_OT_ImportOperator(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                     except FileNotFoundError:
                         self.report({'ERROR'}, 'RSM file ({}) could not be found in directory ({}).'.format(filename, models_path))
                         return {'CANCELLED'}
-                collection.objects.link(model_object)
+
                 x, z, y = rsw_model.position
-                model_object.location += Vector((x, y, -z))
+                model_object.location = Vector(((x + gnd_x_width) * self.scale_factor, (y + gnd_y_height) * self.scale_factor, -z * self.scale_factor))
+                rotation_x, rotation_z, rotation_y = rsw_model.rotation
+                model_object.rotation_euler = (math.radians(rotation_x), math.radians(rotation_y), math.radians(-rotation_z))
+                scale_x, scale_z, scale_y = rsw_model.scale
+                model_object.scale = Vector((scale_x * self.scale_factor, scale_y * self.scale_factor, scale_z * self.scale_factor))
+                collection.objects.link(model_object)
         return {'FINISHED'}
 
     @staticmethod
